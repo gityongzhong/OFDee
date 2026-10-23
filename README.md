@@ -1,10 +1,9 @@
 # OFDee
 
 <p align="center">
-  <img src="docs/screenshots/main.png" alt="OFDee 主界面：缩略图侧栏 + OFD 红头文件渲染" width="820">
+  <img src="assets/screenshot-main.png" alt="OFDee 主界面：缩略图侧栏 + OFD 红头文件渲染" width="820">
 </p>
 <p align="center">
-  <a href="https://gityongzhong.github.io/OFDee/">产品主页</a> ·
   <a href="https://github.com/gityongzhong/OFDee/releases">下载便携版</a>
 </p>
 
