@@ -18,6 +18,7 @@ import base64
 import json
 import subprocess
 import sys
+import urllib.error
 import urllib.request
 from datetime import datetime
 from pathlib import Path
@@ -65,10 +66,19 @@ def epoch(iso):
     return int(datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp())
 
 
-def build_tree(parent_sha, commit_sha):
-    """按 commit 相对其父的变化，组装 Git tree 条目。"""
-    base_tree = api("GET", f"/repos/{REPO}/git/commits/{parent_sha}")["tree"]["sha"]
-    changes = git("diff", "--name-status", f"{commit_sha}~1", commit_sha).splitlines()
+def build_tree(parent_sha, commit_sha, full=False):
+    """组装 Git tree 条目。full=True 或本地缺父对象时走全量，否则按父差异增量。"""
+    base_tree = None
+    if parent_sha:
+        base_tree = api("GET", f"/repos/{REPO}/git/commits/{parent_sha}")["tree"]["sha"]
+    if full or not parent_sha:
+        changes = [
+            "A\t" + line.split("\t", 1)[1]
+            for line in git("ls-tree", "-r", commit_sha).splitlines()
+            if "\t" in line
+        ]
+    else:
+        changes = git("diff", "--name-status", f"{commit_sha}~1", commit_sha).splitlines()
     entries = []
     for line in changes:
         if not line.strip():
@@ -91,7 +101,11 @@ def build_tree(parent_sha, commit_sha):
             },
         )
         entries.append({"path": path, "mode": "100644", "type": "blob", "sha": blob["sha"]})
-    tree = api("POST", f"/repos/{REPO}/git/trees", {"base_tree": base_tree, "tree": entries})
+    tree = api(
+        "POST",
+        f"/repos/{REPO}/git/trees",
+        {"base_tree": base_tree, "tree": entries} if base_tree else {"tree": entries},
+    )
     return tree["sha"], entries
 
 
@@ -115,6 +129,19 @@ def reconstruct_ref(commit_meta):
     return True
 
 
+def ensure_init():
+    """空仓库上 Git Database API 一律 409，先用 Contents API 建一个占位提交把分支立起来。"""
+    api(
+        "PUT",
+        f"/repos/{REPO}/contents/README.md",
+        {
+            "message": "init: 占位提交（初始化仓库，内容将被首提交覆盖）",
+            "content": base64.b64encode(b"# placeholder\n").decode(),
+        },
+    )
+    return api("GET", f"/repos/{REPO}/commits/{BRANCH}")["sha"]
+
+
 def main():
     check_only = "--check" in sys.argv
 
@@ -122,37 +149,53 @@ def main():
         print("✗ 工作区有未提交改动，请先 git commit")
         return 1
 
-    remote = api("GET", f"/repos/{REPO}/commits/{BRANCH}")
-    remote_sha = remote["sha"]
+    try:
+        remote = api("GET", f"/repos/{REPO}/commits/{BRANCH}")
+        remote_sha = remote["sha"]
+    except urllib.error.HTTPError as e:
+        if e.code not in (404, 409):  # 409 = Git Repository is empty
+            raise
+        remote_sha = None  # 空仓库：首提交走全量分支
     head = git("rev-parse", "HEAD").strip()
 
     if head == remote_sha:
         print(f"✓ 本地与远端一致 @ {head[:8]}")
         return 0
 
-    pending = [c for c in git("rev-list", "--reverse", f"{remote_sha}..HEAD").splitlines() if c]
-    if not pending:
-        print(f"本地 {head[:8]} 未领先远端 {remote_sha[:8]}（可能落后，需先 fetch）")
-        return 1
+    if remote_sha is None:
+        init_sha = ensure_init()
+        remote_sha = init_sha
+        force_full = True  # 本地没有 init 提交对象，首提交走全量 tree
+        pending = [c for c in git("rev-list", "--reverse", "HEAD").splitlines() if c]
+        print(f"远端为空仓库，已初始化占位提交 {init_sha[:8]}，将推送本地 {len(pending)} 个 commit")
+    else:
+        force_full = False
+        pending = [c for c in git("rev-list", "--reverse", f"{remote_sha}..HEAD").splitlines() if c]
+        if not pending:
+            print(f"本地 {head[:8]} 未领先远端 {remote_sha[:8]}（可能落后，需先 fetch）")
+            return 1
 
-    print(f"远端 {remote_sha[:8]}  本地落后 {len(pending)} 个 commit")
+    print(f"远端 {remote_sha[:8] if remote_sha else '(空)'}  待推送 {len(pending)} 个 commit")
     for c in pending:
         print(f"  {c[:8]}  {git('log','-1','--pretty=%s', c).strip()}")
     if check_only:
         return 0
 
     parent = remote_sha
-    for c in pending:
+    for i, c in enumerate(pending):
         subject = git("log", "-1", "--pretty=%s", c).strip()
-        tree_sha, entries = build_tree(parent, c)
+        tree_sha, entries = build_tree(parent, c, full=(force_full and i == 0))
         print(f"\n→ 推送 {c[:8]}  {subject}  （{len(entries)} 个文件）")
         message = git("log", "-1", "--pretty=%B", c).rstrip("\n")
         new_commit = api(
             "POST",
             f"/repos/{REPO}/git/commits",
-            {"message": message, "tree": tree_sha, "parents": [parent]},
+            {"message": message, "tree": tree_sha, "parents": [parent] if parent else []},
         )
-        api("PATCH", f"/repos/{REPO}/git/refs/heads/{BRANCH}", {"sha": new_commit["sha"]})
+        if parent:
+            api("PATCH", f"/repos/{REPO}/git/refs/heads/{BRANCH}", {"sha": new_commit["sha"]})
+        else:
+            api("POST", f"/repos/{REPO}/git/refs", {"ref": f"refs/heads/{BRANCH}", "sha": new_commit["sha"]})
         parent = new_commit["sha"]
 
     meta = api("GET", f"/repos/{REPO}/commits/{BRANCH}")
