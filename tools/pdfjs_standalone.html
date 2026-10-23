@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>pdf.js 独立渲染对照</title></head>
+<body>
+<script src="../ui/vendor/pdf.min.js"></script>
+<canvas id="cv" width="600" height="800"></canvas>
+<pre id="out">running...</pre>
+<script>
+(async () => {
+  const out = document.getElementById('out');
+  try {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '../ui/vendor/pdf.worker.min.js';
+    const doc = await pdfjsLib.getDocument('test_outline.pdf').promise;
+    const page = await doc.getPage(1);
+    const vp = page.getViewport({ scale: 2 });
+    const cv = document.getElementById('cv');
+    cv.width = vp.width; cv.height = vp.height;
+    const task = page.render({ canvasContext: cv.getContext('2d'), viewport: vp });
+    await task.promise;
+    // 统计像素
+    const ctx = cv.getContext('2d');
+    const img = ctx.getImageData(0, 0, cv.width, cv.height).data;
+    let dark = 0;
+    for (let p = 0; p < img.length; p += 4 * 97) {
+      if (img[p] < 200 && img[p + 3] > 0) dark++;
+    }
+    out.textContent = `pages=${doc.numPages} vp=${vp.width}x${vp.height} darkPx=${dark}`;
+  } catch (e) {
+    out.textContent = 'ERROR: ' + (e && (e.stack || e.message || String(e))).slice(0, 500);
+  }
+  window.__done = true;
+})();
+</script>
+</body>
+</html>

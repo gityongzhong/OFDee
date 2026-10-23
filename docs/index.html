@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OFDee · OFD / PDF 阅读器 — 免安装、双击即用</title>
+<meta name="description" content="OFDee：自研 OFD 渲染内核的桌面阅读器。便携版单文件，不写注册表，不联网。支持 OFD 内嵌字体修复、页面旋转、双页对开、文字选取与导出。">
+<style>
+  :root {
+    --ink: #1c2128; --ink-2: #59616e; --ink-3: #8a93a3;
+    --line: #e4e8ee; --bg: #ffffff; --bg-2: #f6f8fa;
+    --accent: #2f6bff; --accent-2: #1e4fd6;
+    --code-bg: #0f1115;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    color: var(--ink); background: var(--bg); line-height: 1.75;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+  /* ---- 顶栏 ---- */
+  header {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(255,255,255,.86); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav { display: flex; align-items: center; gap: 28px; height: 60px; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
+  .logo i {
+    width: 28px; height: 28px; border-radius: 7px; display: inline-block;
+    background: linear-gradient(135deg, #2f6bff, #7aa5ff);
+    color: #fff; font-style: normal; font-size: 13px; font-weight: 800;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .nav a { color: var(--ink-2); text-decoration: none; font-size: 14px; }
+  .nav a:hover { color: var(--accent); }
+  .nav .sp { flex: 1; }
+  .btn {
+    display: inline-block; background: var(--accent); color: #fff !important;
+    padding: 8px 18px; border-radius: 8px; font-weight: 600; font-size: 14px;
+    text-decoration: none; border: none; cursor: pointer;
+  }
+  .btn:hover { background: var(--accent-2); }
+  .btn.ghost { background: transparent; color: var(--accent) !important; border: 1.5px solid var(--accent); }
+
+  /* ---- Hero ---- */
+  .hero { padding: 72px 0 40px; text-align: center; }
+  .hero h1 { font-size: 44px; letter-spacing: -.5px; line-height: 1.25; }
+  .hero h1 b { color: var(--accent); }
+  .hero p.sub { margin: 16px auto 26px; max-width: 640px; color: var(--ink-2); font-size: 17px; }
+  .badges { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .badge {
+    font-size: 12.5px; color: var(--ink-2); background: var(--bg-2);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px 13px;
+  }
+  .hero .cta { margin-top: 26px; display: flex; gap: 14px; justify-content: center; }
+
+  /* ---- 截图 + 标注 ---- */
+  .shot { position: relative; margin: 40px 0 8px; }
+  .shot img {
+    width: 100%; display: block; border-radius: 12px;
+    border: 1px solid var(--line);
+    box-shadow: 0 24px 60px -24px rgba(28,33,40,.28);
+  }
+  .pin {
+    position: absolute; width: 26px; height: 26px; border-radius: 50%;
+    background: var(--accent); color: #fff; font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 0 4px rgba(47,107,255,.22), 0 2px 8px rgba(0,0,0,.25);
+    cursor: default;
+  }
+  .pin::after {
+    content: ""; position: absolute; left: 50%; top: 100%; transform: translateX(-50%);
+    border: 5px solid transparent; border-top-color: var(--accent);
+  }
+  .caption { text-align: center; color: var(--ink-3); font-size: 13.5px; margin: 10px 0 0; }
+  .hints { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px 26px; margin: 18px auto 0; max-width: 900px; }
+  .hints div { display: flex; gap: 10px; align-items: baseline; font-size: 14px; color: var(--ink-2); }
+  .hints b {
+    flex: 0 0 22px; height: 22px; border-radius: 50%; background: var(--accent);
+    color: #fff; font-size: 12px; display: inline-flex; align-items: center; justify-content: center;
+    transform: translateY(3px);
+  }
+
+  /* ---- 区块 ---- */
+  section { padding: 64px 0; }
+  section.alt { background: var(--bg-2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  h2 { font-size: 28px; letter-spacing: -.3px; margin-bottom: 8px; text-align: center; }
+  .sec-sub { text-align: center; color: var(--ink-2); max-width: 620px; margin: 0 auto 36px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 18px; }
+  .card {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
+    padding: 22px 20px; transition: box-shadow .15s ease, transform .15s ease;
+  }
+  .card:hover { box-shadow: 0 10px 30px -12px rgba(28,33,40,.18); transform: translateY(-2px); }
+  .card .ico { font-size: 22px; margin-bottom: 10px; display: block; }
+  .card h3 { font-size: 16.5px; margin-bottom: 6px; }
+  .card p { font-size: 13.8px; color: var(--ink-2); }
+
+  .shot-sm { margin-top: 34px; }
+  .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; }
+  @media (max-width: 820px) { .duo { grid-template-columns: 1fr; } }
+  .duo figure img { width: 100%; border-radius: 10px; border: 1px solid var(--line); }
+  .duo figcaption { font-size: 13.5px; color: var(--ink-3); text-align: center; margin-top: 8px; }
+
+  /* ---- 下载 ---- */
+  .dl { text-align: center; }
+  .dl .big { font-size: 20px; margin-bottom: 6px; }
+  .dl p { color: var(--ink-2); font-size: 14.5px; margin-bottom: 22px; }
+  .dl .row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+  .note { margin-top: 18px; font-size: 13px; color: var(--ink-3); }
+  code {
+    font-family: Consolas, "Courier New", monospace; font-size: 13px;
+    background: var(--bg-2); border: 1px solid var(--line);
+    border-radius: 5px; padding: 1.5px 7px;
+  }
+
+  footer { border-top: 1px solid var(--line); padding: 26px 0 40px; color: var(--ink-3); font-size: 13px; text-align: center; }
+  footer a { color: var(--ink-2); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <span class="logo"><i>OF</i>OFDee</span>
+    <span class="sp"></span>
+    <a href="#shots">界面</a>
+    <a href="#features">特性</a>
+    <a href="#themes">主题</a>
+    <a class="btn" href="https://github.com/gityongzhong/OFDee/releases" target="_blank" rel="noopener">下载</a>
+  </div>
+</header>
+
+<!-- ================= HERO ================= -->
+<div class="wrap hero">
+  <h1>国产版式文件，<b>双击即读</b></h1>
+  <p class="sub">
+    OFDee 是一款专注 OFD / PDF 的桌面阅读器：自研 OFD 渲染内核、便携版单文件、
+    不写注册表、不联网。红头文件的内嵌字体、字距版式，原样呈现。
+  </p>
+  <div class="badges">
+    <span class="badge">v1.2.0</span>
+    <span class="badge">Windows 10 / 11</span>
+    <span class="badge">MIT License</span>
+    <span class="badge">便携版 · 约 8 MB</span>
+    <span class="badge">离线可用</span>
+  </div>
+  <div class="cta">
+    <a class="btn" href="https://github.com/gityongzhong/OFDee/releases" target="_blank" rel="noopener">下载便携版</a>
+    <a class="btn ghost" href="https://github.com/gityongzhong/OFDee" target="_blank" rel="noopener">查看源码</a>
+  </div>
+</div>
+
+<!-- ================= 主界面标注 ================= -->
+<section id="shots">
+  <div class="wrap">
+    <h2>为红头文件而生</h2>
+    <p class="sec-sub">打开一份 OFD，红头、文号、正文、落款直接就是正确的 —— 内嵌字体自动修复，压缩字距按标准解析。</p>
+
+    <div class="shot">
+      <img src="screenshots/main.png" alt="OFDee 主界面：左侧缩略图侧栏，右侧 OFD 文档渲染">
+      <span class="pin" style="left:5.2%;  top:12%;">1</span>
+      <span class="pin" style="left:16.5%; top:16%;">2</span>
+      <span class="pin" style="left:47%;   top:31%;">3</span>
+    </div>
+    <div class="hints">
+      <div><b>1</b>缩略图侧栏：整册概览，点击直达，默认展开</div>
+      <div><b>2</b>缩略图按真实比例渲染，旋转后宽高同步互换</div>
+      <div><b>3</b>自研内核逐字排版：字号、字距、行距与原稿一致</div>
+    </div>
+    <p class="caption">截图为真实渲染输出（演示文档，非真实公文）</p>
+  </div>
+</section>
+
+<!-- ================= 特性 ================= -->
+<section class="alt" id="features">
+  <div class="wrap">
+    <h2>特性</h2>
+    <p class="sec-sub">一个安装包都没有：解压即用，删除即走，数据只存在本机。</p>
+    <div class="grid">
+      <div class="card"><span class="ico">🧩</span><h3>自研 OFD 内核</h3>
+        <p>遵循 GB/T 33190-2016，不依赖任何第三方 OFD 库。XML、ZIP 解压全部使用浏览器原生能力。</p></div>
+      <div class="card"><span class="ico">🔤</span><h3>内嵌字体修复</h3>
+        <p>自动重建国产 OFD 常见的不合规内嵌字体（仿宋、黑体、小标宋、楷体），红头文件原样显示。</p></div>
+      <div class="card"><span class="ico">🔄</span><h3>页面旋转</h3>
+        <p>单页 90° 旋转、全册旋转、一键复位；缩略图与导出全部联动，扫描件横竖混排也能正着看。</p></div>
+      <div class="card"><span class="ico">📖</span><h3>双页对开</h3>
+        <p>像纸质书一样左右对开，适配宽屏；配合缩放与适应宽度，长文档阅读不迷路。</p></div>
+      <div class="card"><span class="ico">📑</span><h3>目录大纲</h3>
+        <p>读取 PDF 书签与 OFD 大纲直达章节；没有大纲时自动生成页码网格，同样能快速跳页。</p></div>
+      <div class="card"><span class="ico">🖨️</span><h3>导出</h3>
+        <p>OFD / PDF 可导出为 PDF 或 PNG 图片包，旋转状态一并保留，方便打印与分发。</p></div>
+      <div class="card"><span class="ico">🖱️</span><h3>文字选取</h3>
+        <p>矢量渲染的文字可直接选择复制，Ctrl+A 全选当前页，查文号、抄落款不用手打。</p></div>
+      <div class="card"><span class="ico">🔌</span><h3>文件关联</h3>
+        <p>一键把 .ofd 关联到 OFDee，之后双击任何 OFD 文件直接打开；随时一键解除。</p></div>
+    </div>
+
+    <div class="shot-sm">
+      <div class="duo">
+        <figure>
+          <img src="screenshots/outline.png" alt="目录侧栏：大纲列表或页码网格">
+          <figcaption>目录侧栏：有大纲读大纲，没有就生成页码网格</figcaption>
+        </figure>
+        <figure>
+          <img src="screenshots/rotate.png" alt="旋转菜单：当前页 / 全部页 / 复位">
+          <figcaption>旋转菜单：单页 90° 步进、全册一键、随时复位</figcaption>
+        </figure>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 主题 ================= -->
+<section id="themes">
+  <div class="wrap">
+    <h2>三档主题</h2>
+    <p class="sec-sub">跟随系统 / 深色 / 浅色，切换即时生效并记住选择；无论哪档，纸张都保持本色，不反色刺眼。</p>
+    <div class="shot">
+      <img src="screenshots/dark.png" alt="深色主题：深色界面与白色纸张">
+      <span class="pin" style="left:96.5%; top:5%;">①</span>
+    </div>
+    <div class="hints">
+      <div><b style="transform:translateY(2px)">①</b>右上角设置中切换主题，界面变深，纸张保持白底</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 下载 ================= -->
+<section class="alt dl" id="download">
+  <div class="wrap">
+    <h2>下载</h2>
+    <p class="big">OFDee.exe · 约 8 MB · 便携版</p>
+    <p>不需要安装：下载后放到任意目录，双击即可使用；卸载 = 删除这一个文件。</p>
+    <div class="row">
+      <a class="btn" href="https://github.com/gityongzhong/OFDee/releases" target="_blank" rel="noopener">前往 Releases 下载</a>
+      <a class="btn ghost" href="https://github.com/gityongzhong/OFDee#readme" target="_blank" rel="noopener">阅读使用说明</a>
+    </div>
+    <p class="note">命令行：<code>OFDee.exe 文件.ofd</code> 直接打开 · <code>OFDee.exe --assoc=on</code> 设置文件关联</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    OFDee — OFD / PDF 阅读器 · 以 <a href="https://github.com/gityongzhong/OFDee/blob/main/LICENSE" target="_blank" rel="noopener">MIT</a> 开源
+    · 本页由 <a href="https://github.com/gityongzhong/OFDee" target="_blank" rel="noopener">gityongzhong/OFDee</a> 自动部署
+  </div>
+</footer>
+
+</body>
+</html>

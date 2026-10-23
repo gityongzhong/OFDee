@@ -1,0 +1,31 @@
+# Rust / Tauri 构建产物
+src-tauri/target/
+src-tauri/gen/
+
+# Node / 前端
+node_modules/
+
+# 系统与编辑器
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.tmp
+
+# 调试与测试产物（不进仓库）
+-
+tools/*.png
+tools/delta.json
+tools/pdf_normal.png
+tools/pdf_cbv.png
+tools/dark_probe.png
+tools/dark_doc_probe.png
+
+# 真实公文样本（敏感，绝不入库；截图一律用 tools/make_demo_ofd.py 生成的脱敏演示文档）
+sample.ofd
+tools/bug248.ofd
+tools/test_bookmark.ofd
+
+# 第三方调研产物（ofd.js 为闭源授权库，仅本地调研用）
+package/
+spike/
+v0/

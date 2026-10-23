@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>OFDee v1.2.0</title>
+<link rel="stylesheet" href="./css/app.css">
+<script>
+/* 首屏防闪：在 CSS 生效前就定下主题（state 文件是异步读的，先按上次选择/系统偏好落一次） */
+(function () {
+  try {
+    var saved = localStorage.getItem('ofdee-theme');
+    var sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var eff = (saved === 'dark' || saved === 'light') ? saved
+            : (saved === 'system' || !saved) ? (sysDark ? 'dark' : 'light')
+            : (sysDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', eff);
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+</script>
+</head>
+<body>
+<div id="app">
+  <header id="bar">
+    <button id="btnOpen" class="btn primary" title="打开文件（Ctrl+O）">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5h5"/></svg>
+      <span>打开</span>
+    </button>
+    <div id="docName" class="docname" data-tauri-drag-region>未打开文件</div>
+    <div class="spacer" data-tauri-drag-region></div>
+
+    <div class="group">
+      <button id="btnPrev" class="btn icon" title="上一页（←）">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg>
+      </button>
+      <input id="pageInput" class="pageinput" type="number" min="1" value="1" title="跳转到页码">
+      <span id="pageTotal" class="pagetotal">/ 0</span>
+      <button id="btnNext" class="btn icon" title="下一页（→）">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 5.5 16 12l-6.5 6.5"/></svg>
+      </button>
+    </div>
+
+    <div class="group">
+      <button id="btnZoomOut" class="btn icon" title="缩小（-）">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 12h12"/></svg>
+      </button>
+      <button id="zoomLabel" class="btn zoom" title="点击恢复 100%">100%</button>
+      <button id="btnZoomIn" class="btn icon" title="放大（+）">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg>
+      </button>
+      <button id="btnFitWidth" class="btn icon" title="适应宽度（Ctrl+0）">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"/><path d="m7.5 8.5-3.5 3.5 3.5 3.5"/><path d="m16.5 8.5 3.5 3.5-3.5 3.5"/></svg>
+      </button>
+      <button id="btnFitPage" class="btn icon" title="适应整页">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V6a2 2 0 0 1 2-2h3"/><path d="M15 4h3a2 2 0 0 1 2 2v3"/><path d="M20 15v3a2 2 0 0 1-2 2h-3"/><path d="M9 20H6a2 2 0 0 1-2-2v-3"/><rect x="8.5" y="8.5" width="7" height="7" rx="1"/></svg>
+      </button>
+      <button id="btnSpread" class="btn icon" title="单页 / 双页对开切换">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="5" width="8" height="14" rx="1"/><rect x="13" y="5" width="8" height="14" rx="1"/></svg>
+      </button>
+      <button id="btnOutline" class="btn icon" title="目录 / 页面导航">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6.5h8M5 6.5v11"/><path d="M8.5 12h11"/><path d="M8.5 17.5h11"/></svg>
+      </button>
+      <button id="btnSide" class="btn icon" title="显示/隐藏缩略图">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9.5 4v16"/></svg>
+      </button>
+      <div class="menu-wrap" id="rotateWrap">
+        <button id="btnRotate" class="btn icon" title="旋转页面（只改显示，不改文件）">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 12a8.5 8.5 0 1 1-2.9-6.4"/><path d="M20.5 4v4.6h-4.6"/></svg>
+        </button>
+        <div id="rotateMenu" class="menu">
+          <button data-act="cur"><b>旋转当前页</b><span>顺时针 90°</span></button>
+          <button data-act="all"><b>旋转全部页</b><span>顺时针 90°</span></button>
+          <button data-act="reset"><b>复位旋转</b><span>全部恢复原方向</span></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <button id="btnCopy" class="btn icon" title="复制当前页文字（PDF）">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"/></svg>
+      </button>
+      <div class="menu-wrap" id="exportWrap">
+        <button id="btnExport" class="btn icon" title="导出：当前页 PNG / 全文 PDF / 全部页 PNG">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M4.5 19.5h15"/></svg>
+        </button>
+        <div id="exportMenu" class="menu">
+          <button data-act="pagePng"><b>当前页 PNG</b><span>2 倍分辨率图片</span></button>
+          <button data-act="allPng"><b>全部页 PNG</b><span>打包为 zip</span></button>
+          <button data-act="savePdf"><b>转存为 PDF</b><span>全文合成一个 PDF</span></button>
+        </div>
+      </div>
+      <button id="btnSettings" class="btn icon" title="设置">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 8.98 19.3a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.56-1.1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div id="tabs" data-tauri-drag-region>
+    <div id="tabList"></div>
+    <div class="tab-fill" data-tauri-drag-region></div>
+    <button id="btnNewTab" title="新建标签页（Ctrl+T）">+</button>
+  </div>
+
+  <main id="body">
+    <aside id="outline">
+      <div class="ol-title">目录</div>
+      <div id="outlineTree"></div>
+    </aside>
+    <aside id="rail">
+      <div id="railList"></div>
+    </aside>
+    <section id="stage">
+      <div id="empty">
+        <div class="empty-card">
+          <img class="brand-logo" src="img/logo.png" alt="OFDee" draggable="false"/>
+          <h1>OFDee <span class="brand-sub">OFD / PDF 阅读器</span></h1>
+          <div class="brand-ver">v1.2.0</div>
+          <p>把 .ofd 或 .pdf 文件拖到窗口里，或点击下面的按钮选择文件</p>
+          <button id="btnEmptyOpen" class="btn primary large">选择文件</button>
+          <div class="recent">
+            <div class="recent-title">最近打开</div>
+            <div id="recentList"></div>
+          </div>
+        </div>
+      </div>
+      <div id="viewer">
+        <div id="pages"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer id="status">
+    <div id="stLive" class="st-live">
+      <span id="stPage" class="st-strong">第 0 / 0 页</span>
+      <span class="st-bar" title="阅读进度"><i id="stProgress"></i></span>
+      <span id="stPercent">0%</span>
+      <span id="stZoom" class="st-dim">100%</span>
+      <span id="stMode" class="st-dim">单页</span>
+    </div>
+    <div id="stInfo" class="st-info"><span>就绪</span></div>
+  </footer>
+</div>
+
+<div id="dropHint"><div>松开鼠标，打开文件</div></div>
+<div id="settingsMask"></div>
+<div id="settings">
+  <div class="set-head">
+    <h2>设置</h2>
+    <button id="btnSetClose" class="btn icon" title="关闭（Esc）">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg>
+    </button>
+  </div>
+  <div class="set-body">
+    <section class="set-sec">
+      <div class="set-title">外观</div>
+      <div class="seg" id="segTheme" role="group" aria-label="外观主题">
+        <button class="seg-btn" data-theme-val="system" aria-pressed="true" title="跟随 Windows 的深色/浅色设置">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8.5 20.5h7M12 17v3.5"/></svg>
+          <span>跟随系统</span>
+        </button>
+        <button class="seg-btn" data-theme-val="dark" aria-pressed="false" title="深色主题">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg>
+          <span>深色</span>
+        </button>
+        <button class="seg-btn" data-theme-val="light" aria-pressed="false" title="浅灰主题">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4"/></svg>
+          <span>浅色</span>
+        </button>
+      </div>
+      <p class="set-note" id="themeNote"></p>
+    </section>
+    <section class="set-sec">
+      <div class="set-title">系统集成</div>
+      <label class="set-row" id="rowAssoc">
+        <div class="set-text">
+          <b>关联 .ofd 文件</b>
+          <span id="assocHint">双击 OFD 文件时用 OFDee 打开</span>
+        </div>
+        <span class="switch" id="swAssoc" role="switch" aria-checked="false" tabindex="0"><i></i></span>
+      </label>
+      <p class="set-note" id="assocNote"></p>
+    </section>
+    <section class="set-sec">
+      <div class="set-title">关于</div>
+      <div class="set-about">
+        <div><b>OFDee</b> <span id="setVer">v1.2.0</span></div>
+        <div class="set-dim" id="setExePath">—</div>
+        <div class="set-dim">便携版：不写系统目录，配置存放于 %APPDATA%\OFDee</div>
+      </div>
+    </section>
+  </div>
+</div>
+<div id="busy"><div class="spinner"></div><span id="busyText">正在处理…</span></div>
+<div id="toasts"></div>
+<input id="fileInput" type="file" accept=".ofd,.pdf,application/ofd,application/pdf" hidden>
+
+<script type="module" src="./js/app.js"></script>
+</body>
+</html>
